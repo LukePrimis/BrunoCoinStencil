@@ -82,7 +82,7 @@ func (bc *Blockchain) SetAddr(a string) {
 // 2. From the previous node's utxo, remove any used utxo
 // and add the new utxo from the new block
 // 3. Craft a new blockchain node and put it in the correct
-// spot
+//// spot
 // Tip 1: Remember that this function mutates state
 // concurrently with other go routines
 // Tip 2: It might be helpful to add a debug message
@@ -96,6 +96,38 @@ func (bc *Blockchain) SetAddr(a string) {
 // b.NameTag()
 // txo.MkTXOLoc(...)
 func (bc *Blockchain) Add(b *block.Block) {
+	// 1. Find previous node (that this block is being appended
+	// to)
+	var lb *BlockchainNode = bc.GetLastBlock()
+
+	// 2. From the previous node's utxo, remove any used utxo
+	// and add the new utxo from the new block
+
+	utxoCopy := lb.utxo
+
+	for _, transaction := range b.Transactions {
+		// remove UTXO
+		for _, txi := range transaction.Inputs {
+			key := txo.MkTXOLoc(txi.TransactionHash, txi.OutputIndex)
+			delete(utxoCopy, key)
+		}
+		for ind, txo := range transaction.Outputs {
+			key := txo.MkTXOLoc(txo.Hash(), ind)
+			utxoCopy[key] = txo
+		}
+	}
+	// 3. Craft a new blockchain node and put it in the correct
+	// spot
+	bn := &BlockchainNode{
+		b,
+		lb,
+		utxoCopy,
+		lb.depth + 1,
+	}
+	bc.Lock()
+	bc.LastBlock = bn
+	bc.Unlock()
+
 	return
 }
 
