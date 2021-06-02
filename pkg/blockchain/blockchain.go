@@ -96,6 +96,8 @@ func (bc *Blockchain) SetAddr(a string) {
 // b.NameTag()
 // txo.MkTXOLoc(...)
 func (bc *Blockchain) Add(b *block.Block) {
+	bc.Lock()
+	defer bc.Unlock()
 	// 1. Find previous node (that this block is being appended
 	// to)
 	var lb *BlockchainNode = bc.GetLastBlock()
@@ -124,9 +126,7 @@ func (bc *Blockchain) Add(b *block.Block) {
 		utxoCopy,
 		lb.depth + 1,
 	}
-	bc.Lock()
 	bc.LastBlock = bn
-	bc.Unlock()
 
 	return
 }
@@ -140,7 +140,6 @@ func (bc *Blockchain) Length() int {
 	defer bc.Unlock()
 	return bc.LastBlock.depth + 1
 }
-
 
 // Get returns the blocks that corresponds to a
 // particular inputted hash
@@ -171,7 +170,6 @@ func (bc *Blockchain) IndexOf(hash string) int {
 	return bc.blocks[hash].depth
 }
 
-
 // GetLastBlock is a getter for LastBlock
 // Returns:
 // *block.Block the last block of the main chain.
@@ -180,7 +178,6 @@ func (bc *Blockchain) GetLastBlock() *block.Block {
 	defer bc.Unlock()
 	return bc.LastBlock.Block
 }
-
 
 // List returns all blocks on the main chain in order.
 // Returns:
@@ -196,7 +193,6 @@ func (bc *Blockchain) List() []*block.Block {
 	}
 	return slice
 }
-
 
 // Slice returns a slice of the main chain from a certain
 // starting index to an ending index (exclusive).
@@ -223,7 +219,6 @@ func (bc *Blockchain) Slice(s int, e int) []*block.Block {
 	return slice
 }
 
-
 // IsEndMainChain checks whether a new block would
 // be appended to the end of the current chain.
 // Inputs:
@@ -236,8 +231,6 @@ func (bc *Blockchain) IsEndMainChain(blk *block.Block) bool {
 	return bc.LastBlock.Block.Hash() == blk.Hdr.PrvBlkHsh
 }
 
-
-
 func (bc *Blockchain) GetUTXO(txi *txi.TransactionInput) *txo.TransactionOutput {
 	bc.Lock()
 	defer bc.Unlock()
@@ -245,8 +238,6 @@ func (bc *Blockchain) GetUTXO(txi *txi.TransactionInput) *txo.TransactionOutput 
 	utxo, _ := bc.LastBlock.utxo[key]
 	return utxo
 }
-
-
 
 func (bc *Blockchain) GetUTXOLen(pk string) int {
 	bc.Lock()
@@ -350,6 +341,33 @@ type UTXOInfo struct {
 // bc.Lock()
 // bc.Unlock()
 func (bc *Blockchain) GetUTXOForAmt(amt uint32, pubKey string) ([]*UTXOInfo, uint32, bool) {
+	bc.Lock()
+	defer bc.Unlock()
+
+	lastUTXO := bc.LastBlock.utxo
+	availableUTXO := 0
+	utxoForTransaction := []*UTXOInfo{}
+	change := 0
+
+	for key, output := range lastUTXO {
+		// this is payable to the pubkey
+		if output.LockingScript == pubKey {
+			txHash, txIndex := txp.PrsTXOLoc(key)
+			newInfo := &UTXOInfo{
+				TxHsh:  txHash,
+				OutIdx: txIndex,
+				UTXO:   output,
+				Amt:    output.Amount,
+			}
+			utxoForTransaction = append(utxoForTransaction, newInfo)
+			availableUTXO += output.Amount
+		}
+		if availableUTXO >= amt {
+			// we have found enough UTXO to fill the transaction
+			change = availableUTXO - amt
+			return utxoForTransaction, change, true
+		}
+	}
 	return nil, 0, false
 }
 
