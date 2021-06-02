@@ -70,7 +70,15 @@ func NewLmnlTxs(c *Config) *LiminalTxs {
 // l.TxQ.IncAll()
 // l.TxQ.RemAbv(...)
 func (l *LiminalTxs) ChkTxs(txs []*tx.Transaction) ([]*tx.Transaction, []*tx.Transaction) {
-	return nil, nil
+	// 1. Remove duplicates
+	l.mutex.Lock()
+	removedTransactions := l.TxQ.Rmv(txs)
+	// Increment all priorties
+	l.TxQ.IncAll()
+	// 3. Remove transactions above a certain priority threshold
+	aboveThres := l.TxQ.RemAbv(l.TxRplyThresh)
+	l.mutex.Unlock()
+	return aboveThres, removedTransactions
 }
 
 
@@ -90,5 +98,8 @@ func (l *LiminalTxs) ChkTxs(txs []*tx.Transaction) ([]*tx.Transaction, []*tx.Tra
 // l.mutex.Unlock()
 // l.TxQ.Add(...)
 func (l *LiminalTxs) Add(t *tx.Transaction) {
+	l.mutex.Lock()
+	l.TxQ.Add(0, t)
+	l.mutex.Unlock()
 	return
 }
