@@ -124,6 +124,10 @@ func New(c *Config, id id.ID, chain *blockchain.Blockchain) *Wallet {
 // w.SendTx <- ...
 func (w *Wallet) HndlBlk(b *block.Block) {
 	_, oldTransactions = w.LmnlTxs.ChkTxs(b.Transactions)
+	for _, trans := range b.Transactions {
+		w.LmnlTxs.Add(oldTransactions)
+		w.SendTx -> oldTransactions.NameTag()
+	}
 
 	return
 }
