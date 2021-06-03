@@ -5,6 +5,7 @@ import (
 	"BrunoCoin/pkg/block/tx"
 	"BrunoCoin/pkg/blockchain"
 	"BrunoCoin/pkg/id"
+	"encoding/hex"
 	"sync"
 )
 
@@ -122,7 +123,8 @@ func New(c *Config, id id.ID, chain *blockchain.Blockchain) *Wallet {
 // t.NameTag()
 // w.SendTx <- ...
 func (w *Wallet) HndlBlk(b *block.Block) {
-	w.LmnlTxs.
+	_, oldTransactions = w.LmnlTxs.ChkTxs(b.Transactions)
+
 	return
 }
 
@@ -174,5 +176,28 @@ func (w *Wallet) HndlBlk(b *block.Block) {
 // proto.NewTxInpt(...)
 // proto.NewTxOutpt(...)
 func (w *Wallet) HndlTxReq(txR *TxReq) {
+	// 1. Try and find enough UTXO to make the transaction
+	publicKey := hex.EncodeToString(w.Id.GetPublicKeyBytes())
+	utxoForTransaction, change, weHaveEnough := w.Chain.GetUTXOForAMT(txR.Amt, publicKey)
+	// 2. If not enough, return
+	if !weHaveEnough {
+		return
+	}
+	// 3. Make the transaction inputs for the transaction
+	// from the UTXO
+	newTransactionInputs := proto.NewTxInpt(publicKey, ..., w.Addr, ...)
+	// 4. Make the transaction outputs based on who you
+	// send money to and if there is change leftover for
+	// yourself
+	newTransactionOutputs := proto.NewTxOutpt(utxoForTransaction, publicKey)
+	if change > 0 {
+		changeTransaction = proto.NewTxOutpt(change, publicKey)
+	}
+	newTrans = proto.newTx(uint32, newTransactionInputs, newTransactionOutputs, uint32)
+
+	// 5. Add the transaction to liminal transactions
+	w.LmnlTxs.Add(newTrans)
+	// 6. Send the transaction to the node to be broadcast
+	w.SendTx -> newTrans.NameTag()
 	return
 }
