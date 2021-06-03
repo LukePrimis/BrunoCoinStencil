@@ -6,8 +6,9 @@ import (
 	"BrunoCoin/pkg/blockchain"
 	"BrunoCoin/pkg/id"
 	"BrunoCoin/pkg/utils"
-	"go.uber.org/atomic"
 	"sync"
+
+	"go.uber.org/atomic"
 )
 
 /*
@@ -96,6 +97,9 @@ func (m *Miner) StartMiner() {
 // m.IncChnLen()
 // m.HndlChkBlk(...)
 func (m *Miner) HndlBlk(b *block.Block) {
+	m.HndlChkBlk(b)
+	m.SetHash(b.Hash)
+	m.IncChnLen()
 	return
 }
 
@@ -110,9 +114,11 @@ func (m *Miner) HndlBlk(b *block.Block) {
 // m.TxP.ChkTxs(...)
 // m.PoolUpdated <- ...
 func (m *Miner) HndlChkBlk(b *block.Block) {
-
+	m.TxP.ChkTxs(b.Transactions)
+	if m.Active {
+		m.PoolUpdated <- true
+	}
 }
-
 
 // HndlTx (HandleTransaction) handles a validated transaction from the network. If the transaction is not an orphan, it
 // is added to the transaction pool. If the miner isn't currently mining and the priority threshold is met, then the

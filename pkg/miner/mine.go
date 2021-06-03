@@ -105,6 +105,35 @@ func (m *Miner) DifTrg() string {
 // t.SumInputs()
 // t.SumOutputs()
 func (m *Miner) GenCBTx(txs []*tx.Transaction) *tx.Transaction {
-	return nil
-}
+	fees := 0
+	for _, transaction := range txs {
+		totalInput := 0
+		for _, transactionInput := range transaction.Inputs {
+			totalInput += transactionInput.Amount
+		}
+		totalOutput := 0
+		for _, transactionOutput := range transaction.Outputs {
+			totalOutput += transactionOutput.Amount
+		}
+		transactionFee := totalOutput - totalInput
+		fees += transactionFee
+	}
 
+	mintingReward := m.Conf.InitSubsdy
+	for i := 0; i < m.Conf.MxHlvgs; i += m.Conf.SubsdyHlvRt {
+		mintingReward = mintingReward / 2
+	}
+
+	newTransactionOutput := &txo.TransactionOutput{
+		Amount:        fees + mintingReward,
+		LockingScript: m.Id, // This is just a guess, the documentation doesn't say anything about what the locking script for the coinbase tx should be
+		Liminal:       false,
+	}
+
+	newTransaction := &tx.Transaction{
+		Version: m.Conf.Ver,
+		Inputs:  []*txi.TransactionInput{},
+		Outputs: []*txo.TransactionOutput{newTransactionOutput},
+	}
+	return newTransaction
+}
