@@ -98,7 +98,7 @@ func (m *Miner) StartMiner() {
 // m.HndlChkBlk(...)
 func (m *Miner) HndlBlk(b *block.Block) {
 	m.HndlChkBlk(b)
-	m.SetHash(b.Hash)
+	m.SetHash(b.Hash())
 	m.IncChnLen()
 	return
 }
@@ -135,6 +135,10 @@ func (m *Miner) HndlChkBlk(b *block.Block) {
 // m.TxP.Add(...)
 // m.PoolUpdated <- ...
 func (m *Miner) HndlTx(t *tx.Transaction) {
+	m.TxP.Add(t)
+	if !m.Mining {
+		m.PoolUpdated <- true
+	}
 	return
 }
 
