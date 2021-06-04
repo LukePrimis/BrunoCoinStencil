@@ -49,13 +49,18 @@ import (
 // n.Chain.ChkChainsUTXO(...)
 func (n *Node) ChkBlk(b *block.Block) bool {
 	for _, transactions := b.Transactions {
-		if !transactions.IsCoinBase() || b.SatisfiesPOW()
+		if !transactions.IsCoinBase() || !b.SatisfiesPOW(hash.EncodeToString(b.Hash())) {
+			return false
+		}
 	}
+	if !n.Chain.ChkChainsUTXO(b.Transactions, b.Hash()) {
+		return false
+	} // must be previous hash
 	if b.Sz() > n.Conf.MxBlkSz {
 		return false
 	}
-	if b.Hash() < n.Chain.
-	return false
+
+	return true
 }
 
 
