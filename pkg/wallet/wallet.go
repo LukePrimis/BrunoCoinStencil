@@ -128,7 +128,6 @@ func (w *Wallet) HndlBlk(b *block.Block) {
 		w.LmnlTxs.Add(oldTransactions)
 		w.SendTx -> oldTransactions.NameTag()
 	}
-
 	return
 }
 
