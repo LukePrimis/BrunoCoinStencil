@@ -3,6 +3,7 @@ package pkg
 import (
 	"BrunoCoin/pkg/block"
 	"BrunoCoin/pkg/block/tx"
+	"BrunoCoin/pkg/block/tx/txi"
 )
 
 /*
@@ -47,18 +48,36 @@ import (
 // b.Sz()
 // n.Chain.ChkChainsUTXO(...)
 func (n *Node) ChkBlk(b *block.Block) bool {
-	for _, transactions := range b.Transactions {
-		if !transactions.IsCoinbase() || !b.SatisfiesPOW(b.Hdr.DiffTarg) {
-			return false
-		}
-	}
-	if !n.Chain.ChkChainsUTXO(b.Transactions, b.Hash()) {
+	//Check node and block inputs
+	if b == nil || n == nil {
 		return false
-	} // must be previous hash
+	}
+	// Check transactions
+	if b.Transactions == nil || len(b.Transactions) == 0 {
+		return false
+	}
+	// Verify that first tx is coinbase
+	if !b.Transactions[0].IsCoinbase() {
+		return false
+	}
+	// Verify hash is < difftarg
+	if !b.SatisfiesPOW(b.Hdr.DiffTarg) {
+		return false
+	}
+	// Check block size
 	if b.Sz() > n.Conf.MxBlkSz {
 		return false
 	}
-
+	// Check that all txs are referencing correct chain
+	if !n.Chain.ChkChainsUTXO(b.Transactions, b.Hdr.PrvBlkHsh) {
+		return false
+	}
+	// verify each transaction
+	for _, newTx := range b.Transactions {
+		if !n.ChkTx(newTx) {
+			return false
+		}
+	}
 	return true
 }
 
@@ -94,5 +113,38 @@ func (n *Node) ChkBlk(b *block.Block) bool {
 // t.SumInputs()
 // t.SumOutputs()
 func (n *Node) ChkTx(t *tx.Transaction) bool {
-	return false
+	// Check that tx and its outputs are not nil or empty
+	if t == nil || t.Inputs == nil || t.Outputs == nil {
+		return false
+	}
+	if len(t.Inputs) == 0 || len(t.Outputs) == 0 {
+		return false
+	}
+	// Check that tx inputs > outputs
+	if !(t.SumInputs() > t.SumOutputs()) {
+		return false
+	}
+	// Check size
+	if t.Sz() > n.Conf.MxBlkSz {
+		return false
+	}
+	// Check for double spending and verify locking scripts
+	doubleSpendingCheckMap := make(map[*txi.TransactionInput]bool)
+	for _, txInput := range t.Inputs {
+		// check if its even valid
+		if n.Chain.IsInvalidInput(txInput) {
+			return false
+		}
+		// check for double spending
+		if _, ok := doubleSpendingCheckMap[txInput]; ok {
+			return false
+		}
+		// Check if unlocking script is good
+		txOutput := n.Chain.GetUTXO(txInput)
+		if !txOutput.IsUnlckd(txInput.UnlockingScript) {
+			return false
+		}
+		doubleSpendingCheckMap[txInput] = true
+	}
+	return true
 }
