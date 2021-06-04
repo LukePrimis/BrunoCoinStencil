@@ -47,6 +47,7 @@ import (
 // b.Sz()
 // n.Chain.ChkChainsUTXO(...)
 func (n *Node) ChkBlk(b *block.Block) bool {
+	// check if nil
 	for _, transactions := range b.Transactions {
 		if !transactions.IsCoinbase() || !b.SatisfiesPOW(b.Hdr.DiffTarg) {
 			return false
@@ -58,7 +59,6 @@ func (n *Node) ChkBlk(b *block.Block) bool {
 	if b.Sz() > n.Conf.MxBlkSz {
 		return false
 	}
-
 	return true
 }
 
