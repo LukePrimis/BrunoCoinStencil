@@ -139,11 +139,11 @@ func (tp *TxPool) ChkTxs(remover []*tx.Transaction) {
 	if removedTransactions == nil {
 		return
 	}
-	priorityRemoved := 0
+	var priorityRemoved uint32 = 0
 	for _, removedTx := range removedTransactions {
-		priorityRemoved += CalcPri(removedTransactions)
+		priorityRemoved += CalcPri(removedTx)
 	}
 	tp.CurPri.Sub(priorityRemoved)
-	tp.Ct.Sub(len(removedTransactions))
+	tp.Ct.Sub(uint32(len(removedTransactions)))
 	return
 }

@@ -100,7 +100,7 @@ func (bc *Blockchain) Add(b *block.Block) {
 	defer bc.Unlock()
 	// 1. Find previous node (that this block is being appended
 	// to)
-	var lb *BlockchainNode = bc.GetLastBlock()
+	var lb *BlockchainNode = bc.LastBlock
 
 	// 2. From the previous node's utxo, remove any used utxo
 	// and add the new utxo from the new block
@@ -109,13 +109,13 @@ func (bc *Blockchain) Add(b *block.Block) {
 
 	for _, transaction := range b.Transactions {
 		// remove UTXO
-		for _, txi := range transaction.Inputs {
-			key := txo.MkTXOLoc(txi.TransactionHash, txi.OutputIndex)
+		for _, txInput := range transaction.Inputs {
+			key := txo.MkTXOLoc(txInput.TransactionHash, txInput.OutputIndex)
 			delete(utxoCopy, key)
 		}
-		for ind, txo := range transaction.Outputs {
-			key := txo.MkTXOLoc(txo.Hash(), ind)
-			utxoCopy[key] = txo
+		for ind, txOutput := range transaction.Outputs {
+			key := txo.MkTXOLoc(txOutput.Hash(), uint32(ind))
+			utxoCopy[key] = txOutput
 		}
 	}
 	// 3. Craft a new blockchain node and put it in the correct
@@ -345,14 +345,14 @@ func (bc *Blockchain) GetUTXOForAmt(amt uint32, pubKey string) ([]*UTXOInfo, uin
 	defer bc.Unlock()
 
 	lastUTXO := bc.LastBlock.utxo
-	availableUTXO := 0
+	var availableUTXO uint32 = 0
 	utxoForTransaction := []*UTXOInfo{}
-	change := 0
+	var change uint32 = 0
 
 	for key, output := range lastUTXO {
 		// this is payable to the pubkey
 		if output.LockingScript == pubKey {
-			txHash, txIndex := txp.PrsTXOLoc(key)
+			txHash, txIndex := txo.PrsTXOLoc(key)
 			newInfo := &UTXOInfo{
 				TxHsh:  txHash,
 				OutIdx: txIndex,

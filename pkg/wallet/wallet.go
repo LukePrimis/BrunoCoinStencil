@@ -126,7 +126,7 @@ func (w *Wallet) HndlBlk(b *block.Block) {
 	_, oldTransactions = w.LmnlTxs.ChkTxs(b.Transactions)
 	for _, trans := range b.Transactions {
 		w.LmnlTxs.Add(oldTransactions)
-		w.SendTx -> oldTransactions.NameTag()
+		w.SendTx <- oldTransactions.NameTag()
 	}
 
 	return

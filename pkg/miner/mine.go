@@ -3,6 +3,8 @@ package miner
 import (
 	"BrunoCoin/pkg/block"
 	"BrunoCoin/pkg/block/tx"
+	"BrunoCoin/pkg/block/tx/txi"
+	"BrunoCoin/pkg/block/tx/txo"
 	"BrunoCoin/pkg/utils"
 	"context"
 )
@@ -105,13 +107,13 @@ func (m *Miner) DifTrg() string {
 // t.SumInputs()
 // t.SumOutputs()
 func (m *Miner) GenCBTx(txs []*tx.Transaction) *tx.Transaction {
-	fees := 0
+	var fees uint32 = 0
 	for _, transaction := range txs {
-		totalInput := 0
+		var totalInput uint32 = 0
 		for _, transactionInput := range transaction.Inputs {
 			totalInput += transactionInput.Amount
 		}
-		totalOutput := 0
+		var totalOutput uint32 = 0
 		for _, transactionOutput := range transaction.Outputs {
 			totalOutput += transactionOutput.Amount
 		}
@@ -120,13 +122,14 @@ func (m *Miner) GenCBTx(txs []*tx.Transaction) *tx.Transaction {
 	}
 
 	mintingReward := m.Conf.InitSubsdy
-	for i := 0; i < m.Conf.MxHlvgs; i += m.Conf.SubsdyHlvRt {
+	var i uint32
+	for i = 0; i < m.Conf.MxHlvgs; i += m.Conf.SubsdyHlvRt {
 		mintingReward = mintingReward / 2
 	}
 
 	newTransactionOutput := &txo.TransactionOutput{
 		Amount:        fees + mintingReward,
-		LockingScript: m.Id, // This is just a guess, the documentation doesn't say anything about what the locking script for the coinbase tx should be
+		LockingScript: string(m.Id.GetPublicKeyBytes()), // This is just a guess, the documentation doesn't say anything about what the locking script for the coinbase tx should be
 		Liminal:       false,
 	}
 
