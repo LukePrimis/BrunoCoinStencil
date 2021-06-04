@@ -7,6 +7,7 @@ import (
 	"BrunoCoin/pkg/block/tx/txo"
 	"BrunoCoin/pkg/utils"
 	"context"
+	"math"
 )
 
 /*
@@ -107,8 +108,14 @@ func (m *Miner) DifTrg() string {
 // t.SumInputs()
 // t.SumOutputs()
 func (m *Miner) GenCBTx(txs []*tx.Transaction) *tx.Transaction {
+	if txs == nil || len(txs) == 0 {
+		return nil
+	}
 	var fees uint32 = 0
 	for _, transaction := range txs {
+		if transaction == nil {
+			return nil
+		}
 		var totalInput uint32 = 0
 		for _, transactionInput := range transaction.Inputs {
 			totalInput += transactionInput.Amount
@@ -121,10 +128,12 @@ func (m *Miner) GenCBTx(txs []*tx.Transaction) *tx.Transaction {
 		fees += transactionFee
 	}
 
+
 	mintingReward := m.Conf.InitSubsdy
+	halfs := float64(mintingReward / m.Conf.SubsdyHlvRt)
 	var i uint32
 	for i = 0; i < m.Conf.MxHlvgs; i += m.Conf.SubsdyHlvRt {
-		mintingReward = mintingReward / 2
+		mintingReward = mintingReward / uint32(math.Pow(2, halfs))
 	}
 
 	newTransactionOutput := &txo.TransactionOutput{
