@@ -5,6 +5,7 @@ import (
 	"BrunoCoin/pkg/block/tx"
 	"BrunoCoin/pkg/blockchain"
 	"BrunoCoin/pkg/id"
+	"BrunoCoin/pkg/proto"
 	"encoding/hex"
 	"sync"
 )
@@ -59,7 +60,6 @@ type Wallet struct {
 	mutex sync.Mutex
 }
 
-
 // SetAddr (SetAddress) sets the address
 // of the node in the wallet.
 func (w *Wallet) SetAddr(a string) {
@@ -67,7 +67,6 @@ func (w *Wallet) SetAddr(a string) {
 	w.Addr = a
 	w.mutex.Unlock()
 }
-
 
 // New creates a wallet object.
 // Inputs:
@@ -123,10 +122,10 @@ func New(c *Config, id id.ID, chain *blockchain.Blockchain) *Wallet {
 // t.NameTag()
 // w.SendTx <- ...
 func (w *Wallet) HndlBlk(b *block.Block) {
-	_, oldTransactions = w.LmnlTxs.ChkTxs(b.Transactions)
-	for _, trans := range b.Transactions {
-		w.LmnlTxs.Add(oldTransactions)
-		w.SendTx <- oldTransactions.NameTag()
+	_, oldTransactions := w.LmnlTxs.ChkTxs(b.Transactions)
+	for _, trans := range oldTransactions {
+		w.LmnlTxs.Add(trans)
+		w.SendTx <- trans
 	}
 	return
 }
@@ -181,26 +180,36 @@ func (w *Wallet) HndlBlk(b *block.Block) {
 func (w *Wallet) HndlTxReq(txR *TxReq) {
 	// 1. Try and find enough UTXO to make the transaction
 	publicKey := hex.EncodeToString(w.Id.GetPublicKeyBytes())
-	utxoForTransaction, change, weHaveEnough := w.Chain.GetUTXOForAMT(txR.Amt, publicKey)
+	utxoForTransaction, change, weHaveEnough := w.Chain.GetUTXOForAmt(txR.Amt, publicKey)
 	// 2. If not enough, return
 	if !weHaveEnough {
 		return
 	}
 	// 3. Make the transaction inputs for the transaction
 	// from the UTXO
-	newTransactionInputs := proto.NewTxInpt(publicKey, ..., w.Addr, ...)
+	txInputs := []*proto.TransactionInput{}
+	for _, info := range utxoForTransaction {
+		newInput := proto.NewTxInpt(info.TxHsh, info.OutIdx, publicKey, info.Amt)
+		txInputs = append(txInputs, newInput)
+	}
+	// newTransactionInputs := proto.NewTxInpt(publicKey, ..., w.Addr, ...)
 	// 4. Make the transaction outputs based on who you
 	// send money to and if there is change leftover for
 	// yourself
-	newTransactionOutputs := proto.NewTxOutpt(utxoForTransaction, publicKey)
+	recipientPublicKey := hex.EncodeToString(txR.PubK)
+	txOutputs := []*proto.TransactionOutput{}
+	paymentToRecipient := proto.NewTxOutpt(txR.Amt, recipientPublicKey)
+	txOutputs = append(txOutputs, paymentToRecipient)
 	if change > 0 {
-		changeTransaction = proto.NewTxOutpt(change, publicKey)
+		changeTransaction := proto.NewTxOutpt(change, publicKey)
+		txOutputs = append(txOutputs, changeTransaction)
 	}
-	newTrans = proto.newTx(uint32, newTransactionInputs, newTransactionOutputs, uint32)
+	newTrans := proto.NewTx(w.Conf.TxVer, txInputs, txOutputs, w.Conf.DefLckTm)
 
 	// 5. Add the transaction to liminal transactions
-	w.LmnlTxs.Add(newTrans)
+	deserializedTx := tx.Deserialize(newTrans)
+	w.LmnlTxs.Add(deserializedTx)
 	// 6. Send the transaction to the node to be broadcast
-	w.SendTx -> newTrans.NameTag()
+	w.SendTx <- deserializedTx
 	return
 }
